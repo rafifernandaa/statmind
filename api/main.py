@@ -18,8 +18,6 @@ from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
 
-load_dotenv()
-
 from db.database import get_db, get_engine
 from db.models import ChatSession, Base
 from agents.runner import run_coordinator
@@ -31,8 +29,7 @@ from tools.stat_tools import (
     list_research_notes,
 )
 
-# Ensure tables exist on startup
-Base.metadata.create_all(bind=get_engine())
+load_dotenv()
 
 # Path to the static folder (api/static/)
 STATIC_DIR = Path(__file__).parent / "static"
@@ -52,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.on_event("startup")
+def on_startup():
+    """Initialize database on startup."""
+    pass
 
 # Mount static assets (CSS, JS, images if any)
 if STATIC_DIR.exists():
@@ -79,6 +81,7 @@ def _load_history(session_id: str) -> list:
         session = db.get(ChatSession, session_id)
         if session and session.history_json:
             return json.loads(session.history_json)
+        db.commit()
         return []
 
 
@@ -95,6 +98,7 @@ def _save_history(session_id: str, user_id: str, history: list):
                 user_id=user_id,
                 history_json=json.dumps(trimmed),
             ))
+        db.commit()
 
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
@@ -182,6 +186,7 @@ def clear_session(session_id: str):
         session = db.get(ChatSession, session_id)
         if session:
             session.history_json = "[]"
+            db.commit()
             return {"message": f"Session {session_id} cleared."}
         return {"message": "Session not found."}
 
