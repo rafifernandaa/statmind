@@ -45,7 +45,7 @@ from tools.stat_tools import (
     list_datasets,
 )
 
-MODEL = "gemini-2.5-flash-preview-04-17"
+MODEL = "gemini-3-flash-preview"
 MAX_TOOL_ROUNDS = 6  # prevent infinite loops
 
 # Maps tool name → Python function
