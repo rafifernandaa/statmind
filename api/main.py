@@ -9,8 +9,11 @@ Both lessons from Professor Stats / StatScout failures applied here.
 import os
 import uuid
 import json
+from pathlib import Path
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Optional
 from dotenv import load_dotenv
@@ -31,10 +34,16 @@ from tools.stat_tools import (
 # Ensure tables exist on startup
 Base.metadata.create_all(bind=get_engine())
 
+# Path to the static folder (api/static/)
+STATIC_DIR = Path(__file__).parent / "static"
+
 app = FastAPI(
     title="StatMind",
     description="Multi-agent productivity assistant for statistics students and researchers.",
     version="1.0.0",
+    # Disable default / redirect so our own route takes it
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
 app.add_middleware(
@@ -43,6 +52,10 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Mount static assets (CSS, JS, images if any)
+if STATIC_DIR.exists():
+    app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
 
 # ─── Request / response schemas ───────────────────────────────────────────────
@@ -86,22 +99,18 @@ def _save_history(session_id: str, user_id: str, history: list):
 
 # ─── Routes ───────────────────────────────────────────────────────────────────
 
-@app.get("/")
+@app.get("/", include_in_schema=False)
 def root():
+    """Serve the StatMind UI."""
+    index = STATIC_DIR / "index.html"
+    if index.exists():
+        return FileResponse(str(index), media_type="text/html")
+    # Fallback JSON if static file is missing (e.g. during development without UI)
     return {
         "service": "StatMind",
         "tagline": "Turning Uncertainty Into Insight",
         "version": "1.0.0",
-        "agents": ["CoordinatorAgent", "AnalysisAgent", "ScheduleAgent", "ResearchAgent"],
-        "endpoints": {
-            "chat": "POST /chat",
-            "tasks": "GET /tasks",
-            "upcoming": "GET /tasks/upcoming",
-            "jobs": "GET /analysis/jobs",
-            "datasets": "GET /datasets",
-            "notes": "GET /notes",
-            "health": "GET /health",
-        },
+        "note": "UI not found. Place index.html in api/static/",
     }
 
 
