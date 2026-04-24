@@ -45,7 +45,7 @@ from tools.stat_tools import (
     list_datasets,
 )
 
-MODEL = "gemini-3-flash-preview"
+MODEL = "gemini-2.5-flash"
 MAX_TOOL_ROUNDS = 6  # prevent infinite loops
 
 # Maps tool name → Python function
@@ -68,11 +68,11 @@ TOOL_DISPATCH = {
 
 
 def _get_client() -> genai.Client:
-    """Return configured google-genai client. API key from env or Application Default Credentials."""
-    api_key = os.getenv("GOOGLE_API_KEY")
-    if api_key:
-        return genai.Client(api_key=api_key)
-    return genai.Client()  # Uses ADC on Cloud Run
+    return genai.Client(
+        vertexai=True,
+        project="my-project-31-491314",
+        location="us-central1"
+    )
 
 
 def _run_agent(system_prompt: str, tools: genai_types.Tool,
@@ -171,11 +171,11 @@ def _run_sub_agent(agent_type: str, task: str, history: list) -> str:
     return _run_agent(system_prompt, tools, history[-6:], task)
 
 
-def run_coordinator(user_message: str, history: list) -> str:
+def run_coordinator(user_message: str, history: list) -> tuple[str, str]:
     """
     Run the coordinator agent.
-    The coordinator can call call_analysis_agent, call_schedule_agent,
-    call_research_agent as tools — these are dispatched to _run_sub_agent.
+    Returns (reply_text, agent_used) tuple.
+    agent_used is one of: coordinator, analysis, schedule, research
     """
     client = _get_client()
 
@@ -197,7 +197,7 @@ def run_coordinator(user_message: str, history: list) -> str:
         temperature=0.2,
     )
 
-    sub_agent_results = {}  # Store sub-agent results to inject back
+    agent_used = "coordinator"
 
     for _ in range(MAX_TOOL_ROUNDS):
         response = client.models.generate_content(
@@ -207,12 +207,19 @@ def run_coordinator(user_message: str, history: list) -> str:
         )
 
         candidate = response.candidates[0]
+        finish_reason = str(candidate.finish_reason)
         response_parts = list(candidate.content.parts)
         tool_calls = [p for p in response_parts if p.function_call]
 
         if not tool_calls:
+            # Guard: check for non-STOP finish reasons
+            if "SAFETY" in finish_reason:
+                return "I can't respond to that request.", agent_used
+            if "MAX_TOKENS" in finish_reason:
+                # Still return what we have
+                pass
             text_parts = [p.text for p in response_parts if hasattr(p, "text") and p.text]
-            return "\n".join(text_parts) if text_parts else "(no response)"
+            return ("\n".join(text_parts) if text_parts else "(no response)"), agent_used
 
         contents.append(genai_types.Content(role="model", parts=response_parts))
 
@@ -222,12 +229,15 @@ def run_coordinator(user_message: str, history: list) -> str:
             fn_args = dict(part.function_call.args) if part.function_call.args else {}
 
             if fn_name == "call_analysis_agent":
+                agent_used = "analysis"
                 result_text = _run_sub_agent("analysis", fn_args.get("task", ""), history)
                 result = {"agent": "AnalysisAgent", "response": result_text}
             elif fn_name == "call_schedule_agent":
+                agent_used = "schedule"
                 result_text = _run_sub_agent("schedule", fn_args.get("task", ""), history)
                 result = {"agent": "ScheduleAgent", "response": result_text}
             elif fn_name == "call_research_agent":
+                agent_used = "research"
                 result_text = _run_sub_agent("research", fn_args.get("task", ""), history)
                 result = {"agent": "ResearchAgent", "response": result_text}
             else:
@@ -244,4 +254,4 @@ def run_coordinator(user_message: str, history: list) -> str:
 
         contents.append(genai_types.Content(role="user", parts=tool_result_parts))
 
-    return "StatMind reached the maximum reasoning steps. Please try a more specific request."
+    return "StatMind reached the maximum reasoning steps. Please try a more specific request.", agent_used
