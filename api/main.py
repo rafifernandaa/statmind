@@ -29,8 +29,6 @@ from tools.stat_tools import (
     list_research_notes,
 )
 
-load_dotenv()
-
 # Path to the static folder (api/static/)
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -52,8 +50,8 @@ app.add_middleware(
 
 @app.on_event("startup")
 def on_startup():
-    """Initialize database on startup."""
-    pass
+    """Create all DB tables on startup if they don't exist."""
+    Base.metadata.create_all(bind=get_engine())
 
 # Mount static assets (CSS, JS, images if any)
 if STATIC_DIR.exists():
@@ -71,6 +69,7 @@ class ChatRequest(BaseModel):
 class ChatResponse(BaseModel):
     session_id: str
     reply: str
+    agent_used: str = "coordinator"
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -135,7 +134,7 @@ def chat(request: ChatRequest):
     history = _load_history(session_id)
 
     try:
-        reply = run_coordinator(
+        reply, agent_used = run_coordinator(
             user_message=request.message,
             history=history,
         )
@@ -146,7 +145,7 @@ def chat(request: ChatRequest):
     history.append({"role": "assistant", "content": reply})
     _save_history(session_id, request.user_id or "default", history)
 
-    return ChatResponse(session_id=session_id, reply=reply)
+    return ChatResponse(session_id=session_id, reply=reply, agent_used=agent_used)
 
 
 @app.get("/tasks")
