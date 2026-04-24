@@ -24,7 +24,7 @@ gcloud run deploy "${SERVICE}" \
   --allow-unauthenticated \
   --service-account "${SA}" \
   --set-env-vars "ENV=production,PROJECT_ID=${PROJECT_ID}" \
-  --set-secrets "DB_USER=statmind-db-user:latest,DB_PASS=statmind-db-pass:latest,DB_NAME=statmind-db-name:latest,GOOGLE_API_KEY=statmind-api-key:latest" \
+  --set-secrets "DB_USER=statmind-db-user:latest,DB_PASS=statmind-db-pass:latest,DB_NAME=statmind-db-name:latest" \
   --add-cloudsql-instances "${SQL_INSTANCE}" \
   --memory 1Gi \
   --cpu 1 \
