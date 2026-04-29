@@ -8,7 +8,7 @@ set -e
 
 PROJECT_ID="my-project-31-491314"
 REGION="us-central1"
-SERVICE="statmind"
+SERVICE="new-statmind"
 SA="statmind-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE}"
 SQL_INSTANCE="${PROJECT_ID}:${REGION}:statmind-db"
@@ -29,7 +29,7 @@ gcloud run deploy "${SERVICE}" \
   --memory 1Gi \
   --cpu 1 \
   --concurrency 80 \
-  --clear-base-image
+  --clear-base-image 
 
 echo ""
 echo "==> Deployed. URL:"

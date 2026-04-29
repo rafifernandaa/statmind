@@ -10,7 +10,7 @@ import os
 import uuid
 import json
 from pathlib import Path
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,7 +19,7 @@ from typing import Optional
 from dotenv import load_dotenv
 
 from db.database import get_db, get_engine
-from db.models import ChatSession, Base
+from db.models import ChatSession, Task, AnalysisJob, ResearchNote, Dataset, DatasetColumn, Base
 from agents.runner import run_coordinator
 from tools.stat_tools import (
     list_tasks,
@@ -70,6 +70,7 @@ class ChatResponse(BaseModel):
     session_id: str
     reply: str
     agent_used: str = "coordinator"
+    stat_results: dict = {}   # raw numbers from stat tools — no regex needed
 
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -134,7 +135,7 @@ def chat(request: ChatRequest):
     history = _load_history(session_id)
 
     try:
-        reply, agent_used = run_coordinator(
+        reply, agent_used, stat_results = run_coordinator(
             user_message=request.message,
             history=history,
         )
@@ -145,7 +146,8 @@ def chat(request: ChatRequest):
     history.append({"role": "assistant", "content": reply})
     _save_history(session_id, request.user_id or "default", history)
 
-    return ChatResponse(session_id=session_id, reply=reply, agent_used=agent_used)
+    return ChatResponse(session_id=session_id, reply=reply,
+                        agent_used=agent_used, stat_results=stat_results)
 
 
 @app.get("/tasks")
@@ -176,6 +178,176 @@ def get_datasets(search: Optional[str] = None):
 def get_notes(project: Optional[str] = None, tag: Optional[str] = None):
     """List research notes. Filter by project or tag."""
     return list_research_notes(project=project, tag=tag)
+
+
+@app.delete("/tasks/{task_id}")
+def delete_task(task_id: int):
+    """Delete a task by ID."""
+    with get_db() as db:
+        task = db.get(Task, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found.")
+        db.delete(task)
+        db.commit()
+        return {"message": f"Task {task_id} deleted."}
+
+
+@app.patch("/tasks/{task_id}/complete")
+def complete_task_route(task_id: int):
+    """Mark a task as completed."""
+    with get_db() as db:
+        task = db.get(Task, task_id)
+        if not task:
+            raise HTTPException(status_code=404, detail=f"Task {task_id} not found.")
+        task.status = "completed"
+        from datetime import datetime
+        task.completed_at = datetime.utcnow()
+        db.commit()
+        return {"message": f"Task {task_id} marked completed.", "title": task.title}
+
+
+@app.delete("/notes/{note_id}")
+def delete_note(note_id: int):
+    """Delete a research note by ID."""
+    with get_db() as db:
+        note = db.get(ResearchNote, note_id)
+        if not note:
+            raise HTTPException(status_code=404, detail=f"Note {note_id} not found.")
+        db.delete(note)
+        db.commit()
+        return {"message": f"Note {note_id} deleted."}
+
+
+@app.delete("/datasets/{dataset_id}")
+def delete_dataset(dataset_id: int):
+    """Delete a dataset by ID."""
+    with get_db() as db:
+        dataset = db.get(Dataset, dataset_id)
+        if not dataset:
+            raise HTTPException(status_code=404, detail=f"Dataset {dataset_id} not found.")
+        db.delete(dataset)
+        db.commit()
+        return {"message": f"Dataset {dataset_id} deleted."}
+
+
+@app.patch("/analysis/jobs/{job_id}/status")
+def update_job_status(job_id: int, status: str):
+    """Update analysis job status: pending → running → completed / failed."""
+    valid = {"pending", "running", "completed", "failed"}
+    if status not in valid:
+        raise HTTPException(status_code=400, detail=f"Status must be one of {valid}.")
+    with get_db() as db:
+        job = db.get(AnalysisJob, job_id)
+        if not job:
+            raise HTTPException(status_code=404, detail=f"Job {job_id} not found.")
+        job.status = status
+        db.commit()
+        return {"job_id": job_id, "status": status, "name": job.name}
+
+
+@app.post("/datasets/{dataset_id}/columns")
+async def upload_dataset_columns(dataset_id: int, columns_json: str = Form(...)):
+    """Store column data for a dataset via form POST."""
+    result = store_dataset_columns(dataset_id, columns_json)
+    if "error" in result:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@app.get("/datasets/{dataset_id}/columns")
+def get_dataset_columns(dataset_id: int):
+    """List all columns and basic stats for a dataset."""
+    return list_dataset_columns(dataset_id)
+
+
+@app.post("/datasets/upload-csv")
+async def upload_csv(
+    file: UploadFile = File(...),
+    dataset_name: str = Form(...),
+    source: str = Form(default="CSV Upload"),
+    description: str = Form(default=""),
+):
+    """
+    Upload a CSV file, auto-register it as a dataset, and store all columns.
+    Returns dataset_id and column list so the agent can reference them immediately.
+    """
+    import io, csv as csv_mod
+    if not file.filename.endswith(".csv"):
+        raise HTTPException(status_code=400, detail="Only CSV files are supported.")
+
+    raw = await file.read()
+    try:
+        text = raw.decode("utf-8-sig")  # handles BOM from Excel CSV exports
+    except UnicodeDecodeError:
+        text = raw.decode("latin-1")
+
+    reader = csv_mod.DictReader(io.StringIO(text))
+    rows = list(reader)
+    if not rows:
+        raise HTTPException(status_code=400, detail="CSV file is empty.")
+
+    # Filter out None keys (happens if CSV has more columns than headers)
+    # and ensure they are strings.
+    columns = {str(col): [] for col in rows[0].keys() if col is not None}
+    
+    for row in rows:
+        for col, val in row.items():
+            if col in columns:
+                columns[col].append(val.strip() if val else None)
+
+    # Register dataset
+    try:
+        with get_db() as db:
+            ds = Dataset(
+                name=dataset_name,
+                source=source,
+                description=description or f"Uploaded CSV: {file.filename}",
+                variables=", ".join(columns.keys()),
+                sample_size=len(rows),
+                collection_method="CSV Upload",
+            )
+            db.add(ds)
+            db.flush()
+            ds_id = ds.id
+
+            # Store columns — auto-detect numeric vs categorical
+            import json as json_mod
+            for col_name, values in columns.items():
+                numeric_vals = []
+                dtype = "categorical"
+                for v in values:
+                    try:
+                        # Attempt numeric conversion
+                        if v in (None, ""):
+                            numeric_vals.append(None)
+                        else:
+                            numeric_vals.append(float(v))
+                            dtype = "numeric"
+                    except (TypeError, ValueError):
+                        numeric_vals.append(v)
+                
+                db.add(DatasetColumn(
+                    dataset_id=ds_id,
+                    column_name=col_name,
+                    data_json=json_mod.dumps(numeric_vals),
+                    dtype=dtype,
+                    n_rows=len(values),
+                ))
+            # No need for explicit db.commit() as get_db() context manager does it
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+
+    return {
+        "dataset_id": ds_id,
+        "dataset_name": dataset_name,
+        "n_rows": len(rows),
+        "columns": list(columns.keys()),
+        "message": (f"Dataset '{dataset_name}' registered as ID {ds_id}. "
+                    f"Reference columns as '{ds_id}:column_name' in any stat tool."),
+    }
 
 
 @app.delete("/sessions/{session_id}")

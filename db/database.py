@@ -29,6 +29,23 @@ def _build_engine():
         engine = create_engine(url, connect_args={"check_same_thread": False})
 
     Base.metadata.create_all(bind=engine)
+
+    # Ensure schema is up to date (poor man's migration for missing columns)
+    if env == "production":
+        from sqlalchemy import text
+        # List of tables and columns that might be missing if DB was created with older models
+        updates = [
+            ("datasets", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
+            ("chat_sessions", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
+            ("analysis_jobs", "updated_at", "TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP"),
+        ]
+        with engine.begin() as conn:
+            for table, col, col_type in updates:
+                try:
+                    conn.execute(text(f"ALTER TABLE {table} ADD COLUMN IF NOT EXISTS {col} {col_type}"))
+                except Exception as e:
+                    print(f"Migration warning for {table}.{col}: {e}")
+    
     return engine
 
 

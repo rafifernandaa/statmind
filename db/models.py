@@ -64,3 +64,21 @@ class Dataset(Base):
     collection_method = Column(String(200), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class DatasetColumn(Base):
+    """
+    Stores actual column data for a registered dataset.
+    Each row = one column/variable of a dataset.
+    Values stored as a JSON array string for compact retrieval.
+    This is what makes 'dataset_id:column_name' references work in stat tools.
+    """
+    __tablename__ = "dataset_columns"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    dataset_id = Column(Integer, nullable=False, index=True)
+    column_name = Column(String(200), nullable=False)
+    data_json = Column(Text, nullable=False)   # JSON array of values
+    dtype = Column(String(50), nullable=True)  # numeric / categorical / ordinal
+    n_rows = Column(Integer, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
