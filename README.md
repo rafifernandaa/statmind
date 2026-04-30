@@ -118,6 +118,55 @@ StatMind is optimized for the Google Cloud ecosystem using **Vertex AI** and **I
 
 ---
 
+## 🚀 Step-by-Step Google Cloud Deployment
+
+Follow these steps to deploy StatMind to a production environment on Google Cloud:
+
+### 1. Initial GCP Setup
+*   Create a new project in the [Google Cloud Console](https://console.cloud.google.com/).
+*   Note your **Project ID** (e.g., `my-project-123`).
+*   Enable the following APIs:
+    ```bash
+    gcloud services enable \
+        run.googleapis.com \
+        sqladmin.googleapis.com \
+        secretmanager.googleapis.com \
+        aiplatform.googleapis.com \
+        compute.googleapis.com \
+        artifactregistry.googleapis.com \
+        cloudbuild.googleapis.com
+    ```
+
+### 2. Provision Infrastructure
+StatMind includes a `setup_gcp.sh` script that automates the creation of Service Accounts, IAM roles, and the Cloud SQL database.
+*   Open `setup_gcp.sh` and update the `PROJECT_ID` variable with your ID.
+*   Run the script:
+    ```bash
+    chmod +x setup_gcp.sh
+    ./setup_gcp.sh
+    ```
+*   **Note:** This script will generate a random password for your database and store it securely in **Secret Manager**.
+
+### 3. Deploy the Application
+Once the infrastructure is ready, use the `deploy.sh` script to build and deploy the container.
+*   Open `deploy.sh` and ensure the `PROJECT_ID` and `REGION` match your setup.
+*   Run the deployment:
+    ```bash
+    chmod +x deploy.sh
+    ./deploy.sh
+    ```
+*   The script will:
+    1.  Build your Docker image using **Cloud Build**.
+    2.  Push it to **Artifact Registry**.
+    3.  Deploy it to **Cloud Run** with the correct environment variables and secret bindings.
+
+### 4. Verification
+*   After the script finishes, it will print a Service URL (e.g., `https://statmind-xxx.a.run.app`).
+*   Visit the URL to access the StatMind web interface.
+*   Check the logs in the Cloud Run console if you encounter any issues.
+
+---
+
 ## 💡 Lessons from Evolution
 
 StatMind was built to address critical failure points identified in earlier prototypes:
