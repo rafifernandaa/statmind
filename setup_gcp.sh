@@ -4,8 +4,8 @@
 # Includes: SA creation, role grants (all roles from previous build lessons), Cloud SQL, Secret Manager
 set -e
 
-PROJECT_ID="my-project-31-491314"
-REGION="us-central1"
+PROJECT_ID="YOUR-PROJECT-ID"
+REGION="YOUR-REGION"
 SA_NAME="statmind-sa"
 SA_EMAIL="${SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 
@@ -58,5 +58,3 @@ echo -n "statmind" | gcloud secrets create statmind-db-name --data-file=- --proj
 
 echo ""
 echo "==> GCP setup complete."
-echo "    Next: store your GOOGLE_API_KEY in Secret Manager as 'statmind-api-key', then run deploy.sh"
-echo "    Command: echo -n 'YOUR_KEY' | gcloud secrets create statmind-api-key --data-file=- --project ${PROJECT_ID}"
