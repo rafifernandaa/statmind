@@ -74,6 +74,8 @@ statmind/
 │   └── database.py          # Database engine (SQLite for dev / Cloud SQL for prod)
 ├── tools/
 │   └── stat_tools.py        # 12+ Pure-Python statistical & management tools
+├── Dockerfile               # Container definition for Cloud Run
+├── requirements.txt         # Project dependencies
 ├── deploy.sh                # Cloud Run deployment script
 └── setup_gcp.sh             # GCP resource & IAM provisioning script
 ```
