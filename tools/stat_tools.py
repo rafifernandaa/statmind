@@ -35,7 +35,9 @@ def _resolve_data(ref: str) -> list:
         return [float(v) for v in json.loads(ref)]
 
     # Dataset column reference: ds:42:score  or  42:score
-    parts = ref.lstrip("ds:").split(":")
+    # Strip optional "ds:" prefix as a substring (lstrip strips chars, not substrings)
+    clean = ref[3:] if ref.startswith("ds:") else ref
+    parts = clean.split(":")
     if len(parts) == 2:
         try:
             ds_id = int(parts[0])
@@ -212,7 +214,9 @@ def cronbach_alpha(items_json: str) -> dict:
     try:
         # Support dataset column reference: "42:q1,q2,q3,q4"
         if not items_json.strip().startswith("["):
-            ref_parts = items_json.strip().lstrip("ds:").split(":")
+            _clean = items_json.strip()
+            _clean = _clean[3:] if _clean.startswith("ds:") else _clean
+            ref_parts = _clean.split(":")
             if len(ref_parts) == 2:
                 ds_id = int(ref_parts[0])
                 col_names = [c.strip() for c in ref_parts[1].split(",")]
@@ -837,7 +841,9 @@ def item_analysis(items_json: str, item_labels_json: Optional[str] = None) -> di
     try:
         # Support dataset column reference: "42:q1,q2,q3,q4"
         if not items_json.strip().startswith("["):
-            ref_parts = items_json.strip().lstrip("ds:").split(":")
+            _clean = items_json.strip()
+            _clean = _clean[3:] if _clean.startswith("ds:") else _clean
+            ref_parts = _clean.split(":")
             if len(ref_parts) == 2:
                 ds_id = int(ref_parts[0])
                 col_names = [c.strip() for c in ref_parts[1].split(",")]
@@ -922,6 +928,482 @@ def item_analysis(items_json: str, item_labels_json: Optional[str] = None) -> di
                 + ", ".join(flagged)
                 if flagged else "All items meet the r_itc ≥ 0.3 threshold."
             ),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─── Chi-square test ──────────────────────────────────────────────────────────
+
+def chi_square_test(observed_json: str, expected_json: Optional[str] = None,
+                    variable_name: str = "variable") -> dict:
+    """
+    Chi-square goodness-of-fit (one array) or test of independence (2D array).
+
+    One-way / goodness-of-fit:
+        observed_json = "[30, 20, 25, 25]"          # observed frequencies
+        expected_json = "[25, 25, 25, 25]"           # expected (optional; uniform if omitted)
+
+    Test of independence (contingency table):
+        observed_json = "[[10,20],[30,40]]"          # rows × columns
+
+    Args:
+        observed_json:  JSON array (1D for goodness-of-fit, 2D for independence).
+        expected_json:  Optional JSON array of expected frequencies (1D only).
+        variable_name:  Label for reporting.
+    """
+    try:
+        # Support dataset column reference for observed data
+        obs_raw = observed_json.strip()
+        if not obs_raw.startswith("["):
+            raw = _resolve_data(obs_raw)
+        else:
+            raw = json.loads(observed_json)
+
+        # ── Test of independence (2D contingency table) ──────────────────────
+        if isinstance(raw[0], list):
+            observed = raw
+            n_rows = len(observed)
+            n_cols = len(observed[0])
+            n = sum(observed[r][c] for r in range(n_rows) for c in range(n_cols))
+
+            row_totals = [sum(observed[r]) for r in range(n_rows)]
+            col_totals = [sum(observed[r][c] for r in range(n_rows)) for c in range(n_cols)]
+
+            chi2 = 0.0
+            min_expected = float("inf")
+            for r in range(n_rows):
+                for c in range(n_cols):
+                    exp = row_totals[r] * col_totals[c] / n
+                    min_expected = min(min_expected, exp)
+                    if exp > 0:
+                        chi2 += (observed[r][c] - exp) ** 2 / exp
+
+            df = (n_rows - 1) * (n_cols - 1)
+
+            # Cramér's V effect size
+            phi2 = chi2 / n
+            cramers_v = round(math.sqrt(phi2 / min(n_rows - 1, n_cols - 1)), 4)
+            k = min(n_rows, n_cols)
+            effect = ("Strong" if cramers_v >= 0.5
+                      else "Moderate" if cramers_v >= 0.3
+                      else "Weak" if cramers_v >= 0.1
+                      else "Negligible")
+
+            assumption_ok = min_expected >= 5
+            assumption_note = ("✓ All expected frequencies ≥ 5 — chi-square assumption met"
+                               if assumption_ok
+                               else f"⚠ Min expected frequency = {round(min_expected,2)} < 5 — "
+                                    "consider Fisher's exact test or collapsing categories")
+            sig_note = (f"χ²({df}) = {round(chi2,4)}. "
+                        + ("Likely significant at α=0.05" if chi2 > df * 2 + 2
+                           else "Not significant at α=0.05"))
+            return {
+                "test": "Chi-square test of independence",
+                "chi2": round(chi2, 4),
+                "df": df,
+                "n": n,
+                "cramers_v": cramers_v,
+                "effect_size": effect,
+                "min_expected_frequency": round(min_expected, 3),
+                "assumption_note": assumption_note,
+                "significance_note": sig_note,
+            }
+
+        # ── Goodness-of-fit (1D) ─────────────────────────────────────────────
+        observed = [float(v) for v in raw]
+        k = len(observed)
+        n = sum(observed)
+
+        if expected_json:
+            exp_raw = expected_json.strip()
+            if not exp_raw.startswith("["):
+                expected = _resolve_data(exp_raw)
+            else:
+                expected = [float(v) for v in json.loads(expected_json)]
+
+            if len(expected) != k:
+                return {"error": "observed and expected must have the same length."}
+            # Scale expected to match observed total
+            exp_total = sum(expected)
+            expected = [e * n / exp_total for e in expected]
+        else:
+            expected = [n / k] * k  # uniform distribution
+
+        chi2 = sum((o - e) ** 2 / e for o, e in zip(observed, expected) if e > 0)
+        df = k - 1
+        min_exp = min(expected)
+
+        assumption_note = ("✓ All expected frequencies ≥ 5"
+                           if min_exp >= 5
+                           else f"⚠ Min expected = {round(min_exp,2)} < 5 — results may be unreliable")
+        sig_note = (f"χ²({df}) = {round(chi2,4)}. "
+                    + ("Likely significant at α=0.05" if chi2 > df * 2 + 2
+                       else "Not significant at α=0.05"))
+
+        return {
+            "test": "Chi-square goodness-of-fit",
+            "chi2": round(chi2, 4),
+            "df": df,
+            "n": int(n),
+            "observed": [int(o) for o in observed],
+            "expected": [round(e, 2) for e in expected],
+            "min_expected_frequency": round(min_exp, 3),
+            "assumption_note": assumption_note,
+            "significance_note": sig_note,
+            "variable": variable_name,
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─── Mann-Whitney U test ───────────────────────────────────────────────────────
+
+def mann_whitney_u(group1_json: str, group2_json: str,
+                   group1_label: str = "Group 1",
+                   group2_label: str = "Group 2") -> dict:
+    """
+    Mann-Whitney U test — non-parametric alternative to independent t-test.
+    Use when data is ordinal or normality assumptions are violated.
+
+    Args:
+        group1_json:   JSON array or dataset reference for group 1.
+        group2_json:   JSON array or dataset reference for group 2.
+        group1_label:  Name for group 1.
+        group2_label:  Name for group 2.
+    """
+    try:
+        g1 = _resolve_data(group1_json)
+        g2 = _resolve_data(group2_json)
+        n1, n2 = len(g1), len(g2)
+        if n1 < 3 or n2 < 3:
+            return {"error": "Each group needs at least 3 observations."}
+
+        # Rank all values together
+        combined = [(v, 1) for v in g1] + [(v, 2) for v in g2]
+        combined.sort(key=lambda x: x[0])
+
+        # Assign ranks with tie handling
+        n = len(combined)
+        ranks = [0.0] * n
+        i = 0
+        while i < n:
+            j = i
+            while j < n - 1 and combined[j + 1][0] == combined[i][0]:
+                j += 1
+            avg_rank = (i + j) / 2.0 + 1
+            for k in range(i, j + 1):
+                ranks[k] = avg_rank
+            i = j + 1
+
+        r1 = sum(ranks[i] for i in range(n) if combined[i][1] == 1)
+
+        u1 = r1 - n1 * (n1 + 1) / 2
+        u2 = n1 * n2 - u1
+        u = min(u1, u2)
+
+        # Z approximation (valid for n > 8)
+        mean_u = n1 * n2 / 2
+        std_u = math.sqrt(n1 * n2 * (n1 + n2 + 1) / 12)
+        z = round((u - mean_u) / std_u, 4) if std_u > 0 else 0.0
+
+        # Effect size r = Z / sqrt(N)
+        r_effect = round(abs(z) / math.sqrt(n), 4)
+        effect = ("Large (r≥0.5)" if r_effect >= 0.5
+                  else "Medium (r≥0.3)" if r_effect >= 0.3
+                  else "Small (r≥0.1)" if r_effect >= 0.1
+                  else "Negligible")
+
+        sig_note = (f"U = {round(u,1)}, z = {z}. "
+                    + ("Likely significant at α=0.05 (|z| > 1.96)"
+                       if abs(z) > 1.96
+                       else "Not significant at α=0.05"))
+
+        return {
+            "test": "Mann-Whitney U test",
+            "U": round(u, 1),
+            "U1": round(u1, 1),
+            "U2": round(u2, 1),
+            "z_statistic": z,
+            "r_effect_size": r_effect,
+            "effect_size": effect,
+            "n_group1": n1,
+            "n_group2": n2,
+            "median_group1": round(statistics.median(g1), 4),
+            "median_group2": round(statistics.median(g2), 4),
+            "significance_note": sig_note,
+            "note": ("Mann-Whitney U tests whether one group tends to have higher values "
+                     "than the other. Report medians, not means, alongside this test."),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─── KMO & Bartlett's test ────────────────────────────────────────────────────
+
+def kmo_bartlett(items_json: str,
+                 item_labels_json: Optional[str] = None) -> dict:
+    """
+    Kaiser-Meyer-Olkin (KMO) measure of sampling adequacy and
+    Bartlett's test of sphericity — standard pre-checks before factor analysis.
+    Reports overall KMO, per-item KMO (MSA), and Bartlett chi-square.
+
+    Args:
+        items_json:       2D JSON array (rows=respondents, cols=items) or
+                          dataset reference "dataset_id:col1,col2,col3".
+        item_labels_json: Optional JSON array of item names.
+    """
+    try:
+        # Resolve data (same pattern as cronbach_alpha)
+        raw = items_json.strip()
+        if not raw.startswith("["):
+            clean_raw = raw[3:] if raw.startswith("ds:") else raw
+            parts = clean_raw.split(":")
+            if len(parts) == 2:
+                ds_id = int(parts[0])
+                col_names = [c.strip() for c in parts[1].split(",")]
+                columns = [_resolve_data(f"{ds_id}:{c}") for c in col_names]
+                data = [[columns[c][r] for c in range(len(columns))]
+                        for r in range(len(columns[0]))]
+            else:
+                data = json.loads(raw)
+        else:
+            data = json.loads(raw)
+
+        n = len(data)
+        p = len(data[0])
+        if n < p:
+            return {"error": f"Need more respondents ({n}) than items ({p}) for KMO."}
+        if p < 2:
+            return {"error": "Need at least 2 items for KMO/Bartlett."}
+
+        labels = (json.loads(item_labels_json)
+                  if item_labels_json
+                  else [f"Item{i+1}" for i in range(p)])
+
+        # ── Correlation matrix ───────────────────────────────────────────────
+        means = [statistics.mean(data[r][c] for r in range(n)) for c in range(p)]
+        stds  = [statistics.stdev(data[r][c] for r in range(n)) for c in range(p)]
+
+        # Standardise
+        Z = [[(data[r][c] - means[c]) / stds[c] if stds[c] > 0 else 0
+              for c in range(p)] for r in range(n)]
+
+        R = [[0.0] * p for _ in range(p)]
+        for i in range(p):
+            R[i][i] = 1.0
+            for j in range(i + 1, p):
+                cov = sum(Z[r][i] * Z[r][j] for r in range(n)) / (n - 1)
+                R[i][j] = R[j][i] = round(cov, 6)
+
+        # ── Bartlett's test of sphericity ────────────────────────────────────
+        # Approx det(R) via log-sum of eigenvalues (Gershgorin / trace method)
+        # We use the simpler chi2 = -(n-1-(2p+5)/6) * ln(det R)
+        # Approximate ln(det R) using the matrix trace and off-diagonal sums
+        # For psychometrics reporting the chi2 and df are most important
+        sum_r2 = sum(R[i][j] ** 2
+                     for i in range(p) for j in range(p) if i != j)
+        # Approximate: ln(det R) ≈ -sum_r2 / 2  (works well when correlations moderate)
+        ln_det_approx = -sum_r2 / 2
+        df_bartlett = p * (p - 1) / 2
+        chi2_bartlett = round(-(n - 1 - (2 * p + 5) / 6) * ln_det_approx, 3)
+        bartlett_sig = ("✓ Significant — correlations are large enough for factor analysis"
+                        if chi2_bartlett > df_bartlett * 1.5
+                        else "⚠ Not significant — correlations may be too small for factor analysis")
+
+        # ── KMO ─────────────────────────────────────────────────────────────
+        # Partial correlations (simplified via R inverse approximation)
+        # KMO = Σr²ij / (Σr²ij + Σp²ij)  where pij are partial correlations
+        # Approximate partial correlations as: pij ≈ -R_inv[i,j] / sqrt(R_inv[i,i]*R_inv[j,j])
+        # We use a 2x2 inversion approach for the diagonal blocks
+        sum_sq_r = sum(R[i][j] ** 2
+                       for i in range(p) for j in range(p) if i != j)
+
+        # Approximate partial correlations squared using anti-image approach
+        # partial_r ≈ r_ij * (1 - r²_ij_avg) — fast approximation
+        sum_sq_p = 0.0
+        msa_items = {}
+        for i in range(p):
+            sq_r_i = sum(R[i][j] ** 2 for j in range(p) if j != i)
+            avg_r2 = sq_r_i / (p - 1)
+            # Approximate partial r² for item i
+            sq_p_i = sum(R[i][j] ** 2 * (1 - avg_r2) ** 2
+                         for j in range(p) if j != i)
+            sum_sq_p += sq_p_i
+            msa_i = sq_r_i / (sq_r_i + sq_p_i) if (sq_r_i + sq_p_i) > 0 else 0.0
+            interp = ("Marvellous" if msa_i >= 0.9
+                      else "Meritorious" if msa_i >= 0.8
+                      else "Middling" if msa_i >= 0.7
+                      else "Mediocre" if msa_i >= 0.6
+                      else "Miserable" if msa_i >= 0.5
+                      else "Unacceptable")
+            msa_items[labels[i]] = {"msa": round(msa_i, 4), "interpretation": interp}
+
+        kmo_overall = round(sum_sq_r / (sum_sq_r + sum_sq_p), 4) if (sum_sq_r + sum_sq_p) > 0 else 0.0
+        kmo_interp = ("Marvellous (≥0.9)" if kmo_overall >= 0.9
+                      else "Meritorious (≥0.8)" if kmo_overall >= 0.8
+                      else "Middling (≥0.7)" if kmo_overall >= 0.7
+                      else "Mediocre (≥0.6)" if kmo_overall >= 0.6
+                      else "Miserable (≥0.5)" if kmo_overall >= 0.5
+                      else "Unacceptable (<0.5)")
+        fa_ok = kmo_overall >= 0.6 and chi2_bartlett > df_bartlett * 1.5
+        verdict = ("✓ Proceed with factor analysis" if fa_ok
+                   else "⚠ Factor analysis may not be appropriate — review KMO and Bartlett results")
+
+        return {
+            "kmo_overall": kmo_overall,
+            "kmo_interpretation": kmo_interp,
+            "bartlett_chi2": chi2_bartlett,
+            "bartlett_df": int(df_bartlett),
+            "bartlett_note": bartlett_sig,
+            "n_respondents": n,
+            "n_items": p,
+            "item_msa": msa_items,
+            "verdict": verdict,
+            "note": ("KMO ≥ 0.6 and significant Bartlett's test are required before "
+                     "running Exploratory Factor Analysis (EFA)."),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+# ─── Export analysis report ───────────────────────────────────────────────────
+
+def export_analysis_report(title: str, sections_json: str,
+                            format: str = "text") -> dict:
+    """
+    Generate a formatted analysis report ready to paste into a Word document.
+    Compiles multiple analysis results into one structured academic-style report.
+
+    Args:
+        title:         Report title. E.g. "Reliability Analysis — Skala Stres Akademik"
+        sections_json: JSON array of section objects. Each section has:
+                       {"heading": "...", "content": "...", "results": {...}}
+                       where results is any dict from a stat tool.
+        format:        "text" (plain text, default) or "markdown"
+    """
+    try:
+        sections = json.loads(sections_json)
+        now = datetime.utcnow().strftime("%d %B %Y")
+
+        lines = []
+        sep = "=" * 60
+        thin = "-" * 60
+
+        if format == "markdown":
+            lines.append(f"# {title}")
+            lines.append(f"*Generated by StatMind · {now}*")
+            lines.append("")
+        else:
+            lines.append(sep)
+            lines.append(title.upper())
+            lines.append(f"Generated by StatMind  |  {now}")
+            lines.append(sep)
+            lines.append("")
+
+        for sec in sections:
+            heading = sec.get("heading", "")
+            content = sec.get("content", "")
+            results = sec.get("results", {})
+
+            if format == "markdown":
+                lines.append(f"## {heading}")
+            else:
+                lines.append(heading.upper())
+                lines.append(thin)
+
+            if content:
+                lines.append(content)
+                lines.append("")
+
+            # Format results dict as a clean table
+            if results and isinstance(results, dict):
+                skip_keys = {"note", "assumption_note", "significance_note",
+                             "flagged_note", "items", "group_stats", "item_msa",
+                             "columns", "parameters"}
+                for k, v in results.items():
+                    if k.startswith("_") or k in skip_keys:
+                        continue
+                    key_fmt = k.replace("_", " ").title()
+                    if isinstance(v, float):
+                        val_fmt = f"{v:.4f}"
+                    elif isinstance(v, list):
+                        val_fmt = ", ".join(str(x) for x in v[:8])
+                        if len(v) > 8:
+                            val_fmt += "…"
+                    else:
+                        val_fmt = str(v)
+
+                    if format == "markdown":
+                        lines.append(f"- **{key_fmt}:** {val_fmt}")
+                    else:
+                        lines.append(f"  {key_fmt:<35} {val_fmt}")
+
+                # Special: item-level table for item_analysis / kmo
+                if "items" in results and isinstance(results["items"], dict):
+                    lines.append("")
+                    if format == "markdown":
+                        lines.append("| Item | Mean | SD | r_itc | α if deleted | Flag |")
+                        lines.append("|------|------|----|-------|--------------|------|")
+                        for item, v in results["items"].items():
+                            flag = "⚠" if v.get("flag") else "✓"
+                            lines.append(
+                                f"| {item} | {v.get('mean',''):.3f} | "
+                                f"{v.get('std_dev',''):.3f} | "
+                                f"{v.get('corrected_item_total_r',''):.3f} | "
+                                f"{v.get('alpha_if_deleted',''):.3f} | {flag} |"
+                            )
+                    else:
+                        lines.append(f"  {'Item':<12} {'Mean':>7} {'SD':>7} "
+                                     f"{'r_itc':>8} {'α-del':>8} {'OK?':>5}")
+                        lines.append(f"  {'-'*12} {'-'*7} {'-'*7} {'-'*8} {'-'*8} {'-'*5}")
+                        for item, v in results["items"].items():
+                            flag = "✓" if not v.get("flag") else "⚠"
+                            lines.append(
+                                f"  {item:<12} {v.get('mean',0):>7.3f} "
+                                f"{v.get('std_dev',0):>7.3f} "
+                                f"{v.get('corrected_item_total_r',0):>8.3f} "
+                                f"{v.get('alpha_if_deleted',0):>8.3f} {flag:>5}"
+                            )
+
+                if "item_msa" in results and isinstance(results["item_msa"], dict):
+                    lines.append("")
+                    if format == "markdown":
+                        lines.append("| Item | MSA | Interpretation |")
+                        lines.append("|------|-----|----------------|")
+                        for item, v in results["item_msa"].items():
+                            lines.append(f"| {item} | {v.get('msa',0):.4f} | {v.get('interpretation','')} |")
+                    else:
+                        lines.append(f"  {'Item':<15} {'MSA':>8} {'Interpretation':<20}")
+                        lines.append(f"  {'-'*15} {'-'*8} {'-'*20}")
+                        for item, v in results["item_msa"].items():
+                            lines.append(f"  {item:<15} {v.get('msa',0):>8.4f} {v.get('interpretation','')}")
+
+                # Important notes at the end of section
+                for note_key in ("significance_note", "assumption_note",
+                                 "flagged_note", "verdict", "note"):
+                    if note_key in results and results[note_key]:
+                        lines.append("")
+                        lines.append(f"  Note: {results[note_key]}")
+
+            lines.append("")
+
+        if format != "markdown":
+            lines.append(sep)
+            lines.append("END OF REPORT — Generated by StatMind")
+            lines.append(sep)
+
+        report_text = "\n".join(lines)
+
+
+        return {
+            "report": report_text,
+            "title": title,
+            "format": format,
+            "n_sections": len(sections),
+            "generated": now,
+            "message": ("Report generated. Copy the 'report' field content "
+                        "and paste it directly into your Word document."),
         }
     except Exception as e:
         return {"error": str(e)}
@@ -1061,8 +1543,9 @@ def list_analysis_jobs(status_filter: Optional[str] = None) -> list:
             q = q.filter(AnalysisJob.status == status_filter)
         jobs = q.order_by(AnalysisJob.created_at.desc()).limit(20).all()
         return [{"job_id": j.id, "name": j.name, "method": j.method,
-                 "status": j.status, "dataset_ref": j.dataset_ref,
-                 "created_at": str(j.created_at)} for j in jobs]
+         "status": j.status, "dataset_ref": j.dataset_ref,
+         "created_at": str(j.created_at), "notes": j.notes or "{}"}  # ← add this
+        for j in jobs]
 
 
 # ─── Research notes ───────────────────────────────────────────────────────────

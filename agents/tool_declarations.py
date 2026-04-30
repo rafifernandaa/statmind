@@ -401,6 +401,108 @@ list_dataset_columns_decl = genai_types.FunctionDeclaration(
 )
 
 
+chi_square_test_decl = genai_types.FunctionDeclaration(
+    name="chi_square_test",
+    description=(
+        "Chi-square test. Pass a 1D array for goodness-of-fit or a 2D array for "
+        "test of independence (contingency table). Reports chi2, df, Cramer's V effect size."
+    ),
+    parameters=genai_types.Schema(
+        type=genai_types.Type.OBJECT,
+        properties={
+            "observed_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="1D array e.g. [30,20,25] or 2D contingency table [[10,20],[30,40]]",
+            ),
+            "expected_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="Optional 1D expected frequencies for goodness-of-fit.",
+            ),
+            "variable_name": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="Variable label for reporting.",
+            ),
+        },
+        required=["observed_json"],
+    ),
+)
+
+mann_whitney_u_decl = genai_types.FunctionDeclaration(
+    name="mann_whitney_u",
+    description=(
+        "Mann-Whitney U test — non-parametric alternative to independent t-test. "
+        "Use for ordinal data or when normality is violated. Reports U, z, effect size r."
+    ),
+    parameters=genai_types.Schema(
+        type=genai_types.Type.OBJECT,
+        properties={
+            "group1_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="JSON array or dataset reference for group 1.",
+            ),
+            "group2_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="JSON array or dataset reference for group 2.",
+            ),
+            "group1_label": genai_types.Schema(type=genai_types.Type.STRING, description="Label for group 1."),
+            "group2_label": genai_types.Schema(type=genai_types.Type.STRING, description="Label for group 2."),
+        },
+        required=["group1_json", "group2_json"],
+    ),
+)
+
+kmo_bartlett_decl = genai_types.FunctionDeclaration(
+    name="kmo_bartlett",
+    description=(
+        "Kaiser-Meyer-Olkin (KMO) sampling adequacy and Bartlett sphericity test. "
+        "Run before factor analysis. Reports overall KMO, per-item MSA, and Bartlett chi2."
+    ),
+    parameters=genai_types.Schema(
+        type=genai_types.Type.OBJECT,
+        properties={
+            "items_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="2D JSON array (rows=respondents, cols=items) or dataset_id:col1,col2,col3",
+            ),
+            "item_labels_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="Optional JSON array of item labels.",
+            ),
+        },
+        required=["items_json"],
+    ),
+)
+
+export_analysis_report_decl = genai_types.FunctionDeclaration(
+    name="export_analysis_report",
+    description=(
+        "Generate a formatted analysis report ready to paste into Word. "
+        "Compile multiple stat results into one structured academic report. "
+        "Always offer this after completing an analysis the user might want to document."
+    ),
+    parameters=genai_types.Schema(
+        type=genai_types.Type.OBJECT,
+        properties={
+            "title": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="Report title. E.g. Reliability Analysis Skala Stres Akademik",
+            ),
+            "sections_json": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description=(
+                    "JSON array of sections. Each: "
+                    '{heading, content, results} where results is a stat tool output dict.'
+                ),
+            ),
+            "format": genai_types.Schema(
+                type=genai_types.Type.STRING,
+                description="text (default) or markdown",
+            ),
+        },
+        required=["title", "sections_json"],
+    ),
+)
+
 ANALYSIS_TOOLS = genai_types.Tool(function_declarations=[
     cronbach_alpha_decl,
     descriptive_stats_decl,
@@ -416,6 +518,10 @@ ANALYSIS_TOOLS = genai_types.Tool(function_declarations=[
     list_analysis_jobs_decl,
     store_dataset_columns_decl,
     list_dataset_columns_decl,
+    chi_square_test_decl,
+    mann_whitney_u_decl,
+    kmo_bartlett_decl,
+    export_analysis_report_decl,
 ])
 
 complete_task_by_title_decl = genai_types.FunctionDeclaration(
@@ -456,8 +562,10 @@ COORDINATOR_TOOLS = genai_types.Tool(function_declarations=[
     genai_types.FunctionDeclaration(
         name="call_analysis_agent",
         description="Delegate a statistical analysis task to the AnalysisAgent. "
-                    "Use for: Cronbach's alpha, descriptive stats, Pearson r, "
-                    "analysis job tracking, BigQuery queries.",
+                    "Use for: Cronbach's alpha, item analysis, KMO, Bartlett test, "
+                    "Chi-Square, Mann-Whitney U, t-test, ANOVA, normality, "
+                    "correlation (Pearson/Spearman), regression, sample size, "
+                    "report export, and analysis job tracking.",
         parameters=genai_types.Schema(
             type=genai_types.Type.OBJECT,
             properties={

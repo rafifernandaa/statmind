@@ -2,172 +2,121 @@
 
 > *Turning Uncertainty Into Insight* — Rafi Fernanda Aldin, Universitas Negeri Jakarta
 
----
-
-## What is StatMind?
-
-StatMind is a multi-agent AI productivity assistant designed specifically for **statistics students
-and researchers**. It understands your academic context: IRT, SEM, Cronbach's α, survey data,
-BigQuery datasets, thesis deadlines, and research notes.
-
-**Stack:** `google-genai` (direct client) · FastAPI · Cloud Run · Cloud SQL (PostgreSQL) · SQLite (dev)
+StatMind is a production-grade multi-agent AI assistant designed to streamline the academic lifecycle of statistics students and researchers. It bridges the gap between raw data analysis, academic project management, and knowledge organization.
 
 ---
 
-## Architecture
+## 🚀 Key Features
 
+*   **Multi-Agent Intelligence:** A specialized **Coordinator** routes your requests to three expert sub-agents:
+    *   **Analysis Agent:** Your "Personal Statistician" for 12+ tests including Cronbach's α, ANOVA, Regression, and Normality.
+    *   **Schedule Agent:** Your "Academic Project Manager" for tracking thesis milestones and deadlines.
+    *   **Research Agent:** Your "Knowledge Librarian" for cataloging datasets and research notes.
+*   **Production-Ready Stack:** Built with `google-genai` (Gemini 2.5 Flash), FastAPI, and Cloud SQL (PostgreSQL).
+*   **Structured Data Reference:** Native support for `dataset_id:column` references, allowing the agent to perform complex stats without the user pasting raw data repeatedly.
+*   **Bilingual Expertise:** Seamless support for both **English** and **Bahasa Indonesia**, matching the academic context of regional universities (like UNJ).
+*   **Academic Report Export:** Generate structured analysis reports ready to be pasted directly into Word documents for thesis or journal submissions.
+
+---
+
+## 🏗️ Architecture
+
+```mermaid
+graph TD
+    User((User)) -->|POST /chat| API[FastAPI - api/main.py]
+    API -->|Session Data| DB[(Cloud SQL / SQLite)]
+    API -->|Prompt| Coordinator[CoordinatorAgent - agents/runner.py]
+    
+    subgraph "Expert Sub-Agents"
+        Coordinator -->|Tool Call| Analysis[AnalysisAgent]
+        Coordinator -->|Tool Call| Schedule[ScheduleAgent]
+        Coordinator -->|Tool Call| Research[ResearchAgent]
+    end
+    
+    subgraph "Native Tools"
+        Analysis -->|Python| StatTools[stat_tools.py: α, r, t, F, χ²]
+        Schedule -->|CRUD| TaskTools[Task Management]
+        Research -->|Catalog| NoteTools[Note & Dataset Store]
+    end
+    
+    Coordinator -->|Synthesized Reply| API
+    API -->|Response| User
 ```
-User
-  │  POST /chat
-  ▼
-FastAPI  (api/main.py)
-  │  loads session history from DB
-  ▼
-CoordinatorAgent  (agents/runner.py :: run_coordinator)
-  │  calls one or more sub-agents as tools
-  ├──► call_analysis_agent  →  AnalysisAgent
-  │       tools: cronbach_alpha, descriptive_stats, pearson_correlation,
-  │              create_analysis_job, list_analysis_jobs
-  │
-  ├──► call_schedule_agent  →  ScheduleAgent
-  │       tools: create_task, list_tasks, complete_task, get_upcoming_deadlines
-  │
-  └──► call_research_agent  →  ResearchAgent
-          tools: save_research_note, search_research_notes, list_research_notes,
-                 register_dataset, list_datasets
-  │
-  ▼
-FastAPI stores updated history in DB → returns reply to user
-```
 
 ---
 
-## Lessons Applied from Previous Builds
+## 📊 Statistical Toolkit
 
-| App | Bug | Fix applied in StatMind |
-|---|---|---|
-| Professor Stats | `SessionNotFoundError` with ADK Runner + session service | **No ADK Runner. No session service.** Use `google-genai` client directly. Sessions in DB. |
-| StatScout | Remote MCP endpoint for BigQuery failed tool resolution | **No remote MCP for DB tools.** Native Python functions declared as `FunctionDeclaration`. |
-| StatQuery | Deployment failed without `--clear-base-image` | `--clear-base-image` in `deploy.sh` |
-| StatQuery | AlloyDB SA missing `roles/aiplatform.user` | All required roles in `setup_gcp.sh` including `roles/aiplatform.user` |
-| StatScout | `google-adk==1.28.0` + `gemini-2.5-flash-preview-04-17` confirmed working | Same versions pinned in `requirements.txt` |
+| Category | Available Tests |
+|---|---|
+| **Psychometrics** | Cronbach's Alpha, Item Analysis (r_itc, α-if-deleted), KMO & Bartlett |
+| **Comparison** | Independent T-Test (Welch), One-Way ANOVA, Mann-Whitney U |
+| **Relationship** | Pearson Correlation, Spearman Rank Correlation, Simple Linear Regression |
+| **Distribution** | Normality Tests (Shapiro-Wilk / Skewness-Kurtosis), Descriptive Stats |
+| **Planning** | Sample Size Calculators (Cochran, T-test, ANOVA, Correlation) |
+| **Categorical** | Chi-Square (Goodness-of-Fit & Independence) |
 
 ---
 
-## File Structure
+## 📂 File Structure
 
-```
+```text
 statmind/
 ├── agents/
-│   ├── prompts.py           # All system prompts (coordinator + 3 sub-agents)
-│   ├── tool_declarations.py # FunctionDeclaration objects for google-genai
-│   └── runner.py            # Stateless agent loop — google-genai client directly
+│   ├── prompts.py           # Unified system prompts for all 4 agents
+│   ├── tool_declarations.py # FunctionDeclaration objects for Gemini
+│   └── runner.py            # Stateless agent loop using direct google-genai client
 ├── api/
-│   └── main.py              # FastAPI app, session management, all REST endpoints
+│   ├── main.py              # FastAPI application & session management
+│   └── static/              # Frontend assets (index.html)
 ├── db/
-│   ├── models.py            # SQLAlchemy models: ChatSession, Task, AnalysisJob, etc.
-│   └── database.py          # Engine factory: SQLite (dev) / Cloud SQL (prod)
+│   ├── models.py            # SQLAlchemy models: ChatSession, Task, AnalysisJob, ResearchNote, Dataset
+│   └── database.py          # Database engine (SQLite for dev / Cloud SQL for prod)
 ├── tools/
-│   └── stat_tools.py        # Pure-Python stats + DB CRUD tools
-├── .env.example
-├── Dockerfile
-├── deploy.sh                # Cloud Run deployment (with --clear-base-image)
-├── setup_gcp.sh             # One-time GCP resource setup
-└── requirements.txt
+│   └── stat_tools.py        # 12+ Pure-Python statistical & management tools
+├── deploy.sh                # Cloud Run deployment script
+└── setup_gcp.sh             # GCP resource & IAM provisioning script
 ```
 
 ---
 
-## Example Workflows
+## 🛠️ Local Development
 
-### Workflow 1 — Cronbach's alpha
-```
-User: "Hitung Cronbach's alpha untuk data ini: [[4,3,5],[3,2,4],[5,5,5],[4,4,4]]"
-→ Coordinator → AnalysisAgent → cronbach_alpha()
-← α = 0.89, Good reliability, item-total correlations, flagged items
-```
+1.  **Environment Setup:**
+    ```bash
+    cp .env.example .env
+    # Edit .env and set GOOGLE_API_KEY
+    ```
 
-### Workflow 2 — Task + deadline
-```
-User: "Add task: submit BAB IV draft by May 20, project Skripsi, high priority"
-→ Coordinator → ScheduleAgent → create_task()
-← Task created with ID 1, due 2025-05-20, high priority
-```
+2.  **Install Dependencies:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-### Workflow 3 — Research note
-```
-User: "Save a note about SMARVUS dataset for my skripsi"
-→ Coordinator → ResearchAgent → register_dataset() + save_research_note()
-← Dataset registered, note saved with tags
-```
-
-### Workflow 4 — Multi-step
-```
-User: "Run descriptive stats on [4.2, 3.8, 5.0, 4.5] then save as a note"
-→ Coordinator → AnalysisAgent (descriptive_stats)
-→ Coordinator → ResearchAgent (save_research_note with results)
-← Stats summary + note saved
-```
+3.  **Run Application:**
+    ```bash
+    python -m api.main
+    # Access at http://localhost:8080
+    ```
 
 ---
 
-## Core Requirements Checklist
+## ☁️ Deployment (Google Cloud)
 
-| Requirement | Implementation |
-|---|---|
-| Primary agent + sub-agents | `CoordinatorAgent` routes to 3 domain sub-agents via tool calls |
-| Structured database | Cloud SQL / SQLite — 5 tables via SQLAlchemy |
-| Multiple tools via MCP pattern | `FunctionDeclaration` tools: stat tools, task tools, note tools |
-| Multi-step workflows | Coordinator chains sub-agents in sequence within one request |
-| API-based deployment | FastAPI on Cloud Run, `my-project-31-491314`, `us-central1` |
+StatMind is optimized for the Google Cloud ecosystem:
 
----
-
-## Local Development
-
-```bash
-cp .env.example .env
-# Edit .env: set GOOGLE_API_KEY
-
-pip install -r requirements.txt
-python -m api.main
-# → http://localhost:8080
-```
-
-Test the chat endpoint:
-```bash
-curl -X POST http://localhost:8080/chat \
-  -H "Content-Type: application/json" \
-  -d '{"message": "Hitung Cronbach alpha: [[4,3,5],[3,2,4],[5,5,5]]"}'
-```
+1.  **Provision Resources:** `chmod +x setup_gcp.sh && ./setup_gcp.sh`
+2.  **Store Secrets:** 
+    ```bash
+    echo -n "YOUR_API_KEY" | gcloud secrets create statmind-api-key --data-file=-
+    ```
+3.  **Deploy to Cloud Run:** `chmod +x deploy.sh && ./deploy.sh`
 
 ---
 
-## Deployment
+## 💡 Lessons from Evolution
 
-```bash
-# Step 1 — one-time GCP setup
-chmod +x setup_gcp.sh && ./setup_gcp.sh
-
-# Step 2 — store API key
-echo -n "YOUR_GOOGLE_API_KEY" | gcloud secrets create statmind-api-key --data-file=- \
-  --project my-project-31-491314
-
-# Step 3 — deploy
-chmod +x deploy.sh && ./deploy.sh
-```
-
----
-
-## GCP Resources
-
-| Resource | Value |
-|---|---|
-| Project | `my-project-31-491314` |
-| Region | `us-central1` |
-| Service account | `statmind-sa@my-project-31-491314.iam.gserviceaccount.com` |
-| Cloud SQL | `statmind-db` (PostgreSQL 15) |
-| Service name | `statmind` |
-
-SA roles required: `bigquery.dataViewer`, `bigquery.jobUser`, `cloudsql.client`,
-`secretmanager.secretAccessor`, `aiplatform.user`, `run.invoker`
+StatMind was built to address critical failure points identified in earlier prototypes:
+*   **Stability:** Moved from ADK-based session management to a **custom SQLAlchemy session store** to eliminate `SessionNotFoundError`.
+*   **Precision:** Replaced LLM-based calculations with **native Python tool calls** to ensure zero-hallucination statistical outputs.
+*   **Scalability:** Implemented a **Coordinator-Specialist pattern** to manage long-running research workflows without overwhelming the context window.

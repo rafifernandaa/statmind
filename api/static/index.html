@@ -30,27 +30,42 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex
 ::-webkit-scrollbar-thumb{background:var(--line-mid);border-radius:3px}
 
 /* SIDEBAR */
-.sidebar{width:var(--sw);flex-shrink:0;background:var(--plum);display:flex;flex-direction:column;position:relative;overflow:hidden}
+.sidebar{width:var(--sw);flex-shrink:0;background:var(--plum);display:flex;flex-direction:column;position:relative;overflow:hidden;transition:width .2s cubic-bezier(0.4, 0, 0.2, 1)}
+.sidebar.minimized{width:68px}
 .sb-deco{position:absolute;inset:0;pointer-events:none;z-index:0;overflow:hidden}
 .sb-deco svg{width:100%;height:100%;position:absolute;inset:0}
-.sb-logo{padding:22px 20px 15px;border-bottom:1px solid rgba(255,255,255,.08);position:relative;z-index:1}
+.sb-logo{padding:22px 20px 15px;border-bottom:1px solid rgba(255,255,255,.08);position:relative;z-index:1;display:flex;flex-direction:column}
+.sb-logo-row{display:flex;align-items:center;justify-content:space-between;width:100%}
 .sb-wordmark{font-family:var(--serif);font-size:22px;font-style:italic;color:var(--white);letter-spacing:-.3px;display:flex;align-items:center;gap:8px;line-height:1}
+.sidebar.minimized .sb-wordmark span:not(.sb-dot){display:none}
 .sb-dot{width:8px;height:8px;background:var(--yel);border-radius:50%;flex-shrink:0;box-shadow:0 0 0 3px rgba(240,192,48,.18),0 0 12px rgba(240,192,48,.3);animation:pdot 3s ease-in-out infinite}
 @keyframes pdot{0%,100%{box-shadow:0 0 0 3px rgba(240,192,48,.18),0 0 8px rgba(240,192,48,.2)}50%{box-shadow:0 0 0 5px rgba(240,192,48,.12),0 0 18px rgba(240,192,48,.35)}}
 .sb-sub{font-size:8px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.25);margin-top:6px;font-family:var(--sans);font-weight:500}
+.sidebar.minimized .sb-sub{display:none}
 .sb-sec{padding:16px 20px 4px;font-size:7.5px;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,255,255,.22);font-weight:600;position:relative;z-index:1}
+.sidebar.minimized .sb-sec{display:none}
 .nav{display:flex;align-items:center;gap:10px;padding:8px 12px 8px 14px;margin:1px 8px;border-radius:7px;cursor:pointer;color:rgba(255,255,255,.45);font-size:12.5px;font-weight:400;transition:background .14s,color .14s;position:relative;z-index:1;border:1px solid transparent;letter-spacing:.01em}
+.sidebar.minimized .nav{padding:8px;justify-content:center;margin:2px 10px}
 .nav:hover{background:rgba(255,255,255,.07);color:rgba(255,255,255,.82)}
 .nav.active{background:rgba(255,255,255,.11);color:var(--white);font-weight:500;border-color:rgba(255,255,255,.07)}
 .nav-ico{width:26px;height:26px;border-radius:6px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .14s}
 .nav.active .nav-ico{background:rgba(255,255,255,.09)}
-.nav-lbl{flex:1}
+.nav-lbl{flex:1;white-space:nowrap}
+.sidebar.minimized .nav-lbl{display:none}
 .nav-badge{background:var(--red);color:var(--white);font-family:var(--mono);font-size:8.5px;font-weight:700;padding:1px 5px;border-radius:6px;min-width:18px;text-align:center;letter-spacing:.02em}
+.sidebar.minimized .nav-badge{position:absolute;top:2px;right:2px;font-size:7px;padding:1px 3px;min-width:14px}
 .sb-bot{margin-top:auto;padding:12px;border-top:1px solid rgba(255,255,255,.07);position:relative;z-index:1}
-.user-chip{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06)}
+.sidebar.minimized .sb-bot{padding:12px 8px}
+.user-chip{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.06);overflow:hidden}
+.sidebar.minimized .user-chip{padding:6px;justify-content:center}
 .u-av{width:28px;height:28px;background:var(--plum-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-family:var(--sans);font-size:9px;font-weight:700;color:var(--white);flex-shrink:0;letter-spacing:.04em}
-.u-name{font-size:12px;font-weight:600;color:var(--white);line-height:1.3}
-.u-role{font-size:9px;color:rgba(255,255,255,.32);margin-top:1px}
+.u-name{font-size:12px;font-weight:600;color:var(--white);line-height:1.3;white-space:nowrap}
+.sidebar.minimized .u-name, .sidebar.minimized .u-role {display:none}
+.u-role{font-size:9px;color:rgba(255,255,255,.32);margin-top:1px;white-space:nowrap}
+
+.view-toggle{width:24px;height:24px;border-radius:6px;border:none;background:rgba(255,255,255,.05);color:rgba(255,255,255,.4);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s,color .15s}
+.view-toggle:hover{background:rgba(255,255,255,.1);color:var(--white)}
+.sidebar.minimized .view-toggle{margin-top:10px;align-self:center}
 
 /* MAIN */
 .main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -70,6 +85,10 @@ body{font-family:var(--sans);background:var(--bg);color:var(--text);display:flex
 .apill.lit-schedule .led{background:var(--c-sc);box-shadow:0 0 6px rgba(232,57,26,.55)}
 .apill.lit-research{background:var(--bg-re);border-color:var(--bd-re);color:var(--c-re)}
 .apill.lit-research .led{background:var(--c-re);box-shadow:0 0 6px rgba(240,192,48,.55)}
+
+.ctx-toggle-btn{width:28px;height:28px;border-radius:7px;border:1px solid var(--line);background:var(--bg-card);color:var(--text-soft);cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;margin-left:5px}
+.ctx-toggle-btn:hover{border-color:var(--plum-light);color:var(--plum);background:var(--white)}
+.ctx-toggle-btn.active{background:var(--bg-inset);color:var(--text)}
 
 .content{flex:1;display:flex;overflow:hidden}
 .chat{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
@@ -144,8 +163,9 @@ textarea::placeholder{color:var(--text-soft)}
 .err.show{display:block}
 
 /* CONTEXT PANEL */
-.ctx{width:246px;border-left:1px solid var(--line);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
-.ctx-hd{padding:12px 15px 10px;border-bottom:1px solid var(--line);font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--text);display:flex;align-items:center;gap:7px;letter-spacing:-.1px}
+.ctx{width:246px;border-left:1px solid var(--line);background:var(--bg-card);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0;transition:width .2s cubic-bezier(0.4, 0, 0.2, 1)}
+.ctx.minimized{width:0;border-left:none}
+.ctx-hd{padding:12px 15px 10px;border-bottom:1px solid var(--line);font-family:var(--serif);font-style:italic;font-size:13.5px;color:var(--text);display:flex;align-items:center;gap:7px;letter-spacing:-.1px;white-space:nowrap}
 
 /* CUSTOM MODAL */
 .modal-overlay{position:fixed;inset:0;background:rgba(24,16,15,.6);display:none;align-items:center;justify-content:center;z-index:1000;backdrop-filter:blur(2px)}
@@ -191,7 +211,31 @@ textarea::placeholder{color:var(--text-soft)}
 .smini{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid var(--line);font-size:11.5px}
 .smini:last-child{border-bottom:none}
 .smini .lbl{color:var(--text-mid)}
-.smini .val{font-family:var(--mono);font-weight:700;font-size:12.5px;color:var(--plum)}
+.smini .val{font-family:var(--mono);font-weight:700;font-size:12.5px;color:var(--plum);transition:color .3s}
+
+/* Animation for updates */
+@keyframes slideInFromBottom {
+  from { opacity: 0; transform: translateY(18px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.metric-new { animation: slideInFromBottom 0.35s cubic-bezier(0.22, 1, 0.36, 1) forwards; }
+
+@keyframes flashUpdate {
+  0% { background: var(--bg-co); }
+  100% { background: var(--bg-card); }
+}
+.smini.updated { animation: flashUpdate 0.8s ease-out; }
+
+#recentResultsList {
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+.smini {
+  background: var(--bg-card);
+  will-change: transform, opacity;
+  transition: opacity 0.3s;
+}
 
 /* notes */
 .note-item{display:flex;align-items:flex-start;gap:7px;padding:5px 4px;border-bottom:1px solid var(--line);font-size:11.5px;cursor:pointer;transition:background .12s;border-radius:5px;position:relative}
@@ -241,7 +285,12 @@ textarea::placeholder{color:var(--text-soft)}
     </svg>
   </div>
   <div class="sb-logo">
-    <div class="sb-wordmark"><span class="sb-dot"></span><span>StatMind</span></div>
+    <div class="sb-logo-row">
+      <div class="sb-wordmark"><span class="sb-dot"></span><span>StatMind</span></div>
+      <button class="view-toggle" id="sidebarToggle" onclick="toggleSidebar()" title="Toggle Sidebar">
+        <svg viewBox="0 0 16 16" fill="none" width="12" id="sidebarIcon"><path d="M10 4l-4 4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
     <div class="sb-sub">Turning Uncertainty Into Insight</div>
   </div>
   <div class="sb-sec">Workspace</div>
@@ -273,7 +322,7 @@ textarea::placeholder{color:var(--text-soft)}
   <div class="sb-bot">
     <div class="user-chip">
       <div class="u-av">RF</div>
-      <div><div class="u-name">Rafi Fernanda</div><div class="u-role">Statistics · UNJ Sem. 6</div></div>
+      <div><div class="u-name">Rafi Fernanda</div><div class="u-role">Statistics · UNJ Sem 6</div></div>
     </div>
   </div>
 </aside>
@@ -290,6 +339,9 @@ textarea::placeholder{color:var(--text-soft)}
       <div class="apill" id="pill-analysis"><div class="led"></div>Analysis</div>
       <div class="apill" id="pill-schedule"><div class="led"></div>Schedule</div>
       <div class="apill" id="pill-research"><div class="led"></div>Research</div>
+      <button class="ctx-toggle-btn" id="ctxToggle" onclick="toggleContext()" title="Toggle Context Panel">
+        <svg viewBox="0 0 16 16" fill="none" width="13"><rect x="2" y="2" width="12" height="12" rx="2" stroke="currentColor" stroke-width="1.2"/><path d="M10 2v12" stroke="currentColor" stroke-width="1.2"/></svg>
+      </button>
     </div>
   </header>
   <div id="errBanner" class="err"></div>
@@ -304,11 +356,11 @@ textarea::placeholder{color:var(--text-soft)}
           <p>Statistical analysis, deadlines, research notes, and datasets — all from one place.</p>
           <div class="chips">
             <div class="chip" onclick="quick(this)">Calculate Cronbach's alpha</div>
-            <div class="chip" onclick="quick(this)">Analyze my instrument items</div>
-            <div class="chip" onclick="quick(this)">Test data normality</div>
+            <div class="chip" onclick="quick(this)">Analyze my instrument item</div>
+            <div class="chip" onclick="quick(this)">Uji normalitas data</div>
             <div class="chip" onclick="quick(this)">Calculate sample size (Cochran)</div>
             <div class="chip" onclick="quick(this)">Independent t-test (two groups)</div>
-            <div class="chip" onclick="quick(this)">Simple linear regression</div>
+            <div class="chip" onclick="quick(this)">Simple linear reggression</div>
             <div class="chip" onclick="quick(this)">What's due this week?</div>
             <div class="chip" onclick="quick(this)">Spearman correlation (ordinal)</div>
           </div>
@@ -340,10 +392,14 @@ textarea::placeholder{color:var(--text-soft)}
         </div>
         <div class="ctx-sec">
           <div class="ctx-st">Recent results</div>
-          <div class="smini"><span class="lbl">Last &#945; (Cronbach)</span><span class="val" id="lastAlpha">&#8212;</span></div>
-          <div class="smini"><span class="lbl">Last r (Pearson)</span><span class="val" id="lastR">&#8212;</span></div>
-          <div class="smini"><span class="lbl">Last n (sample)</span><span class="val" id="lastN">&#8212;</span></div>
-          <div class="smini"><span class="lbl">Analysis jobs</span><span class="val" id="jobCount">0</span></div>
+          <div id="recentResultsList">
+            <div class="ctx-empty">No results yet</div>
+          </div>
+          <div style="margin-top:8px; border-top:1px solid var(--line); padding-top:8px">
+            <div class="ctx-st" style="font-size:7px; opacity:0.6">Analysis History</div>
+            <div id="ctxJobs"><div class="ctx-empty">No analysis history</div></div>
+          </div>
+          <div class="smini" style="border-top:none"><span class="lbl">Total jobs</span><span class="val" id="jobCount">0</span></div>
         </div>
         <div class="ctx-sec">
           <div class="ctx-st">Recent notes</div>
@@ -417,6 +473,37 @@ function confirmModal() {
   document.getElementById('modalOverlay').classList.remove('show');
   if(modalResolve) modalResolve({ name, description });
 }
+
+// Sidebar & Context Toggles
+function toggleSidebar() {
+  const sb = document.querySelector('.sidebar');
+  const icon = document.getElementById('sidebarIcon');
+  const isMin = sb.classList.toggle('minimized');
+  localStorage.setItem('sb_minimized', isMin);
+  icon.innerHTML = isMin 
+    ? '<path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>'
+    : '<path d="M10 4l-4 4 4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+}
+
+function toggleContext() {
+  const ctx = document.querySelector('.ctx');
+  const btn = document.getElementById('ctxToggle');
+  const isMin = ctx.classList.toggle('minimized');
+  localStorage.setItem('ctx_minimized', isMin);
+  btn.classList.toggle('active', isMin);
+}
+
+// Initialize states
+(function initLayout() {
+  if (localStorage.getItem('sb_minimized') === 'true') {
+    document.querySelector('.sidebar').classList.add('minimized');
+    document.getElementById('sidebarIcon').innerHTML = '<path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  if (localStorage.getItem('ctx_minimized') === 'true') {
+    document.querySelector('.ctx').classList.add('minimized');
+    document.getElementById('ctxToggle').classList.add('active');
+  }
+})();
 
 const viewMeta = {
   chat:['Assistant','/ CHAT'],analysis:['Analysis Jobs','/ ANALYSIS'],
@@ -599,13 +686,15 @@ function extractStats(text, agentUsed){
 }
 function buildStatCard(stats){
   // Only build a card for what was ACTUALLY extracted this response.
-  // Never mix stats from different analyses in one card.
   const hasAlpha = stats.alpha !== undefined;
   const hasR     = stats.r     !== undefined;
   const hasN     = stats.n     !== undefined;
-  if(!hasAlpha && !hasR && !hasN) return '';
+  const hasChi2  = stats.chi2  !== undefined;
+  const hasKmo   = stats.kmo_overall !== undefined;
+  const hasU     = stats.U !== undefined;
 
-  // Separate card per stat type — prevents cross-contamination
+  if(!hasAlpha && !hasR && !hasN && !hasChi2 && !hasKmo && !hasU) return '';
+
   let cards = '';
 
   if(hasAlpha){
@@ -615,7 +704,7 @@ function buildStatCard(stats){
                  stats.alpha>=.6?'Questionable — consider revising items':
                                  'Poor — instrument needs revision';
     cards += '<div class="scard">'
-           + '<div class="scard-lbl">Cronbach’s α</div>'
+           + '<div class="scard-lbl">Cronbach’s \u03b1</div>'
            + '<div class="scard-num">'+ stats.alpha.toFixed(4) +'</div>'
            + '<div class="scard-int">'+ interp +'</div>'
            + '</div>';
@@ -629,7 +718,30 @@ function buildStatCard(stats){
     cards += '<div class="scard">'
            + '<div class="scard-lbl">Pearson r</div>'
            + '<div class="scard-num">'+ stats.r.toFixed(4) +'</div>'
-           + '<div class="scard-int">'+ strength +' '+ dir +' correlation · r² = '+ r2 +'</div>'
+           + '<div class="scard-int">'+ strength +' '+ dir +' correlation \u00b7 r\u00b2 = '+ r2 +'</div>'
+           + '</div>';
+  }
+
+  if(hasChi2){
+    cards += '<div class="scard">'
+           + '<div class="scard-lbl">Chi-Square \u03c7\u00b2</div>'
+           + '<div class="scard-num">'+ stats.chi2.toFixed(4) +'</div>'
+           + '</div>';
+  }
+
+  if(hasKmo){
+    const interp = stats.kmo_overall >= 0.8 ? 'Meritorious' : stats.kmo_overall >= 0.7 ? 'Middling' : 'Mediocre';
+    cards += '<div class="scard">'
+           + '<div class="scard-lbl">KMO Measure</div>'
+           + '<div class="scard-num">'+ stats.kmo_overall.toFixed(4) +'</div>'
+           + '<div class="scard-int">Sampling adequacy: '+ interp +'</div>'
+           + '</div>';
+  }
+
+  if(hasU){
+    cards += '<div class="scard">'
+           + '<div class="scard-lbl">Mann-Whitney U</div>'
+           + '<div class="scard-num">'+ stats.U.toFixed(1) +'</div>'
            + '</div>';
   }
 
@@ -643,30 +755,35 @@ function buildStatCard(stats){
   return cards;
 }
 
+function flashEl(id) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const parent = el.closest('.smini') || el;
+  parent.classList.remove('updated');
+  void parent.offsetWidth; // trigger reflow
+  parent.classList.add('updated');
+}
+
 function addMsg(role,text,agent,statResults){
   const w=document.getElementById('welcome'); if(w)w.remove();
   const msgs=document.getElementById('msgs');
-  // Prefer structured stat_results from backend over prose regex parsing.
-  // Fall back to extractStats only if backend returned nothing (old sessions).
+  
   let stats = {};
   if(role==='assistant'){
     if(statResults && Object.keys(statResults).length > 0){
-      // Direct from tool results — reliable
-      const tool = statResults['_tool'] || '';
-      if(tool === 'cronbach_alpha' && statResults.alpha !== undefined)
-        stats.alpha = parseFloat(statResults.alpha);
-      if(tool === 'pearson_correlation' && statResults.r !== undefined)
-        stats.r = parseFloat(statResults.r);
-      if(statResults.n !== undefined)
-        stats.n = parseInt(statResults.n);
+      // Support all dynamic metrics for the bubble card + trigger sidebar
+      const keys = ["alpha", "r", "n", "chi2", "U", "kmo_overall", "f_stat", "t_stat", "r_squared"];
+      keys.forEach(k => {
+        if (statResults[k] !== undefined) stats[k] = statResults[k];
+      });
+      // Delay refresh slightly to allow DB commit to settle
+      setTimeout(refreshCtx, 500);
     } else {
-      // Fallback regex (only fires when stat_results missing)
       stats = extractStats(text, agent);
+      if (Object.keys(stats).length > 0) setTimeout(refreshCtx, 500);
     }
   }
-  if(stats.alpha!==undefined)document.getElementById('lastAlpha').textContent=stats.alpha.toFixed(4);
-  if(stats.r!==undefined)document.getElementById('lastR').textContent=stats.r.toFixed(4);
-  if(stats.n!==undefined)document.getElementById('lastN').textContent=stats.n.toString();
+
   const statCard=(role==='assistant')?buildStatCard(stats):'';
   const ak=(agent||'').toLowerCase();
   const am=ak.includes('analysis')?'analysis':ak.includes('schedule')?'schedule':ak.includes('research')?'research':'coordinator';
@@ -678,6 +795,9 @@ function addMsg(role,text,agent,statResults){
   d.innerHTML='<div class="m-av">'+av+'</div><div class="m-body"><div class="m-bub">'+bubContent+'</div><div class="m-meta">'+agTag+' '+ts()+'</div></div>';
   msgs.appendChild(d);
   msgs.scrollTop=msgs.scrollHeight;
+
+  // Final sidebar sync once the bubble is in the DOM
+  if (role === 'assistant') refreshCtx();
 }
 function showThinking(){
   const el=document.createElement('div');
@@ -757,6 +877,19 @@ async function uploadCSV(input) {
   input.value = '';
 }
 
+const METRIC_MAP = {
+  alpha:       { label: 'Last \u03b1 (Cronbach)' },
+  r:           { label: 'Last r (Pearson)' },
+  chi2:        { label: 'Last \u03c7\u00b2 (Chi-squared)' },
+  kmo_overall: { label: 'Last KMO' },
+  r_squared:   { label: 'Last R\u00b2 (Regr)' },
+  n:           { label: 'Last n (Sample)' },
+  f_stat:      { label: 'Last F (ANOVA)' },
+  t_stat:      { label: 'Last t (T-Test)' },
+  U:           { label: 'Last U (Mann Whitney)' },
+  z_statistic: { label: 'Last z (Standard)' },
+};
+
 async function refreshCtx(){
   try{
     const [tasks,jobs,datasets,notes]=await Promise.all([
@@ -766,7 +899,7 @@ async function refreshCtx(){
       fetch(API+'/notes').then(r=>r.json()).catch(()=>[]),
     ]);
 
-    // tasks
+    // Update badges and task list
     const tc=Array.isArray(tasks)?tasks.length:0;
     document.getElementById('taskBadge').textContent=tc;
     const clr={high:'h',medium:'m',low:'l'};
@@ -779,11 +912,130 @@ async function refreshCtx(){
         </div>`).join('')
       :'<div class="ctx-empty">No upcoming deadlines</div>';
 
-    // FIX 3: analysis job counter
+    // Update jobs badge and count
     const jc=Array.isArray(jobs)?jobs.length:0;
     const jp=Array.isArray(jobs)?jobs.filter(j=>j.status==='pending').length:0;
     document.getElementById('jobBadge').textContent=jp;
-    document.getElementById('jobCount').textContent=jc;
+    const countEl = document.getElementById('jobCount');
+    if (countEl.textContent != jc) {
+      countEl.textContent = jc;
+      flashEl('jobCount');
+    }
+
+    // --- DYNAMIC RECENT RESULTS (Reordering Logic) ---
+    const resultsContainer = document.getElementById('recentResultsList');
+    const recentJobs = Array.isArray(jobs) ? jobs.slice(0, 15) : [];
+    
+    const latestMetrics = []; 
+    const seenKeys = new Set();
+
+    for (const j of recentJobs) {
+      try {
+        const n_json = JSON.parse(j.notes || '{}');
+        for (const key in METRIC_MAP) {
+          if (n_json[key] !== undefined && !seenKeys.has(key)) {
+            latestMetrics.push({ key, val: n_json[key] });
+            seenKeys.add(key);
+          }
+        }
+      } catch(e) {}
+    }
+
+    const topMetrics = latestMetrics.slice(0, 3);
+    const topKeys = new Set(topMetrics.map(x => x.key));
+    
+    if (topMetrics.length === 0) {
+      resultsContainer.innerHTML = `<div class="ctx-empty">No results yet</div>`;
+    } else {
+      const empty = resultsContainer.querySelector('.ctx-empty');
+      if (empty) empty.remove();
+      
+      // 1. FLIP: record positions before DOM change
+      const beforeRects = {};
+      Array.from(resultsContainer.children).forEach(child => {
+        if (child.id) beforeRects[child.id] = child.getBoundingClientRect();
+      });
+
+      // 2. Remove items not in the new top 3 immediately to avoid "flash" of extra items
+      Array.from(resultsContainer.children).forEach(child => {
+        if (child.id && child.id.startsWith('metric-')) {
+          const k = child.id.replace('metric-', '');
+          if (!topKeys.has(k)) child.remove();
+        }
+      });
+
+      // 3. Apply DOM updates (maintain newest-first order)
+      topMetrics.forEach((m) => {
+        let el = document.getElementById(`metric-${m.key}`);
+        const formattedVal = typeof m.val === 'number' ? m.val.toFixed(4) : m.val;
+
+        if (!el) {
+          el = document.createElement('div');
+          el.id = `metric-${m.key}`;
+          el.className = 'smini metric-new';
+          el.innerHTML = `<span class="lbl">${METRIC_MAP[m.key].label}</span><span class="val">${esc(formattedVal)}</span>`;
+          resultsContainer.appendChild(el);
+          el.addEventListener('animationend', () => el.classList.remove('metric-new'), {once: true});
+        } else {
+          const valEl = el.querySelector('.val');
+          if (valEl.textContent !== String(formattedVal)) {
+            valEl.textContent = formattedVal;
+            flashEl(el.id);
+          }
+          resultsContainer.appendChild(el); // Re-order/maintain position in flow
+        }
+      });
+
+      // 4. FLIP: animate existing elements from their old position to new
+      requestAnimationFrame(() => {
+        Array.from(resultsContainer.children).forEach(child => {
+          if (!child.id || !beforeRects[child.id]) return;
+          const before = beforeRects[child.id];
+          const after = child.getBoundingClientRect();
+          const dy = before.top - after.top;
+
+          if (Math.abs(dy) < 0.5) return;
+          child.style.transition = 'none';
+          child.style.transform = `translateY(${dy}px)`;
+          requestAnimationFrame(() => {
+            child.style.transition = 'transform 0.4s cubic-bezier(0.22, 1, 0.36, 1)';
+            child.style.transform = 'translateY(0)';
+          });
+        });
+      });
+    }
+
+    // --- ANALYSIS HISTORY LIST ---
+    const historyList = document.getElementById('ctxJobs');
+    const displayHistory = Array.isArray(jobs) ? jobs.slice(0, 3) : [];
+    if (displayHistory.length > 0) {
+      const historyHtml = displayHistory.map(j => {
+        let val = "";
+        try {
+          const n_json = JSON.parse(j.notes || '{}');
+          // Fix truthiness check for 0.0 values
+          const firstVal = [n_json.alpha, n_json.r, n_json.chi2, n_json.kmo_overall, n_json.mean, n_json.n].find(v => v !== undefined);
+          val = (firstVal !== undefined) ? firstVal : "";
+          if (typeof val === 'number') val = val.toFixed(3);
+        } catch(e) {}
+        return `
+          <div class="smini" style="cursor:pointer" onclick="clickContext('Tell me about the analysis job ID ${j.job_id}: ${esc(j.name)}')">
+            <div class="lbl" style="font-size:10px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+              <span style="opacity:0.5;font-family:var(--mono)">#${j.job_id}</span> ${esc(j.name)}
+            </div>
+            <div class="val" style="font-size:10px">${esc(val)}</div>
+          </div>`;
+      }).join('');
+      
+      if (historyList.innerHTML !== historyHtml) {
+        historyList.innerHTML = historyHtml;
+        historyList.classList.remove('updated');
+        void historyList.offsetWidth;
+        historyList.classList.add('updated');
+      }
+    } else {
+      historyList.innerHTML = '<div class="ctx-empty">No analysis history</div>';
+    }
 
     // notes — FIX 1+4
     const nc=Array.isArray(notes)?notes.length:0;
@@ -813,7 +1065,7 @@ async function refreshCtx(){
 }
 
 refreshCtx();
-setInterval(refreshCtx,30000);
+setInterval(refreshCtx,8000);
 document.getElementById('inp').focus();
 </script>
 </body>

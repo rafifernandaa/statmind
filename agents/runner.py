@@ -53,6 +53,10 @@ from tools.stat_tools import (
     list_datasets,
     store_dataset_columns,
     list_dataset_columns,
+    chi_square_test,
+    mann_whitney_u,
+    kmo_bartlett,
+    export_analysis_report,
 )
 
 MODEL = "gemini-2.5-flash"
@@ -71,6 +75,10 @@ TOOL_DISPATCH = {
     "simple_linear_regression": simple_linear_regression,
     "sample_size_calculator": sample_size_calculator,
     "item_analysis": item_analysis,
+    "chi_square_test": chi_square_test,
+    "mann_whitney_u": mann_whitney_u,
+    "kmo_bartlett": kmo_bartlett,
+    "export_analysis_report": export_analysis_report,
     "create_analysis_job": create_analysis_job,
     "list_analysis_jobs": list_analysis_jobs,
     "create_task": create_task,
@@ -185,6 +193,7 @@ def _run_agent(system_prompt: str, tools: genai_types.Tool,
                 "spearman_correlation", "independent_ttest", "one_way_anova",
                 "normality_test", "simple_linear_regression",
                 "sample_size_calculator", "item_analysis",
+                "chi_square_test", "mann_whitney_u", "kmo_bartlett",
             }
             if fn_name in _STAT_TOOLS and isinstance(result, dict) and "error" not in result:
                 if _accumulated_stats is not None:
@@ -192,19 +201,33 @@ def _run_agent(system_prompt: str, tools: genai_types.Tool,
                     _accumulated_stats["_tool"] = fn_name
                 # Auto-register job so counter is always accurate
                 try:
-                    _label = (fn_args.get("variable_name")
-                              or fn_args.get("x_label")
-                              or fn_args.get("items", ["??"])[0]
-                              if isinstance(fn_args.get("items"), list) else "result")
+                    # Improved label extraction
+                    _arg_label = (
+                        fn_args.get("variable_name") or 
+                        fn_args.get("x_label") or 
+                        fn_args.get("group1_label") or
+                        fn_args.get("observed_json") or
+                        fn_args.get("items_json")
+                    )
+                    if isinstance(_arg_label, list):
+                        _label = _arg_label[0] if _arg_label else "list"
+                    elif isinstance(_arg_label, str):
+                        # Extract column from "42:score" or just take start of JSON
+                        _label = _arg_label.split(":")[-1] if ":" in _arg_label else _arg_label[:20]
+                    else:
+                        _label = "result"
+
                     create_analysis_job(
                         name=f"{fn_name.replace('_', ' ').title()} — {_label}",
                         method=fn_name,
                         dataset_ref="inline",
                         notes=json.dumps({
                             k: v for k, v in result.items()
-                            if k in ("alpha", "r", "r_squared", "n",
+                            if k in ("alpha", "r", "r_squared", "n", "chi2", "U",
+                                     "z_statistic", "kmo_overall", "f_stat", "t_stat",
                                      "mean", "std", "interpretation")
                         }),
+
                     )
                 except Exception:
                     pass  # Never let job creation break the stat response

@@ -1,14 +1,8 @@
-#!/bin/bash
-# StatMind — Cloud Run deployment
-# Lessons applied:
-#   - --clear-base-image required (StatQuery lesson: wrong base causes silent failures)
-#   - SA needs bigquery + cloudsql + secretmanager roles
-#   - No ADK Runner, no session service dependency at deploy time
 set -e
 
 PROJECT_ID="my-project-31-491314"
 REGION="us-central1"
-SERVICE="new-statmind"
+SERVICE="statmind-v1-1"
 SA="statmind-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE}"
 SQL_INSTANCE="${PROJECT_ID}:${REGION}:statmind-db"
