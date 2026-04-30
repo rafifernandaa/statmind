@@ -1,8 +1,8 @@
 set -e
 
-PROJECT_ID="my-project-31-491314"
-REGION="us-central1"
-SERVICE="statmind-v1-1"
+PROJECT_ID="YOUR-PROJECT-ID"
+REGION="YOUR-REGION"
+SERVICE="statmind"
 SA="statmind-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 IMAGE="gcr.io/${PROJECT_ID}/${SERVICE}"
 SQL_INSTANCE="${PROJECT_ID}:${REGION}:statmind-db"
