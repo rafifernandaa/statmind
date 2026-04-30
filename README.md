@@ -1,6 +1,6 @@
 # StatMind — Multi-Agent Productivity Assistant for Statistics
 
-> *Turning Uncertainty Into Insight* — Rf
+> *Turning Uncertainty Into Insight* — RF
 
 StatMind is a production-grade multi-agent AI assistant designed to streamline the academic lifecycle of statistics students and researchers. It bridges the gap between raw data analysis, academic project management, and knowledge organization.
 
