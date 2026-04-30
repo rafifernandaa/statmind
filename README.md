@@ -14,7 +14,7 @@ StatMind is a production-grade multi-agent AI assistant designed to streamline t
     *   **Research Agent:** Your "Knowledge Librarian" for cataloging datasets and research notes.
 *   **Production-Ready Stack:** Built with `google-genai` (Gemini 2.5 Flash), FastAPI, and Cloud SQL (PostgreSQL).
 *   **Structured Data Reference:** Native support for `dataset_id:column` references, allowing the agent to perform complex stats without the user pasting raw data repeatedly.
-*   **Bilingual Expertise:** Seamless support for both **English** and **Bahasa Indonesia**, matching the academic context of regional universities (like UNJ).
+*   **Bilingual Expertise:** Seamless support for both **English** and **Bahasa Indonesia**.
 *   **Academic Report Export:** Generate structured analysis reports ready to be pasted directly into Word documents for thesis or journal submissions.
 
 ---
