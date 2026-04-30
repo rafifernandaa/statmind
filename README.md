@@ -1,6 +1,6 @@
 # StatMind — Multi-Agent Productivity Assistant for Statistics
 
-> *Turning Uncertainty Into Insight* — RF
+> *Turning Uncertainty Into Insight* — Rf
 
 StatMind is a production-grade multi-agent AI assistant designed to streamline the academic lifecycle of statistics students and researchers. It bridges the gap between raw data analysis, academic project management, and knowledge organization.
 
@@ -85,15 +85,20 @@ statmind/
 1.  **Environment Setup:**
     ```bash
     cp .env.example .env
-    # Edit .env and set GOOGLE_API_KEY
+    # Note: Vertex AI uses IAM. No GOOGLE_API_KEY needed if authenticated via gcloud.
     ```
 
-2.  **Install Dependencies:**
+2.  **Authenticate:**
+    ```bash
+    gcloud auth application-default login
+    ```
+
+3.  **Install Dependencies:**
     ```bash
     pip install -r requirements.txt
     ```
 
-3.  **Run Application:**
+4.  **Run Application:**
     ```bash
     python -m api.main
     # Access at http://localhost:8080
@@ -103,11 +108,19 @@ statmind/
 
 ## ☁️ Deployment (Google Cloud)
 
-StatMind is optimized for the Google Cloud ecosystem:
+StatMind is optimized for the Google Cloud ecosystem using **Vertex AI** and **IAM-based security**:
 
 1.  **Provision Resources:** `chmod +x setup_gcp.sh && ./setup_gcp.sh`
-2.  **Store Secrets:** 
-    ```bash
-    echo -n "YOUR_API_KEY" | gcloud secrets create statmind-api-key --data-file=-
-    ```
-3.  **Deploy to Cloud Run:** `chmod +x deploy.sh && ./deploy.sh`
+    *   This script creates a Service Account with `roles/aiplatform.user`.
+2.  **Deploy to Cloud Run:** `chmod +x deploy.sh && ./deploy.sh`
+    *   The service automatically authenticates via the assigned Service Account.
+    *   No API keys are stored or managed in the cloud environment.
+
+---
+
+## 💡 Lessons from Evolution
+
+StatMind was built to address critical failure points identified in earlier prototypes:
+*   **Stability:** Moved from ADK-based session management to a **custom SQLAlchemy session store** to eliminate `SessionNotFoundError`.
+*   **Precision:** Replaced LLM-based calculations with **native Python tool calls** to ensure zero-hallucination statistical outputs.
+*   **Scalability:** Implemented a **Coordinator-Specialist pattern** to manage long-running research workflows without overwhelming the context window.
