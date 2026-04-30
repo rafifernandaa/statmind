@@ -1,6 +1,6 @@
 # StatMind — Multi-Agent Productivity Assistant for Statistics
 
-> *Turning Uncertainty Into Insight* — Rafi Fernanda Aldin, Universitas Negeri Jakarta
+> *Turning Uncertainty Into Insight* — Rafi Fernanda Aldin
 
 StatMind is a production-grade multi-agent AI assistant designed to streamline the academic lifecycle of statistics students and researchers. It bridges the gap between raw data analysis, academic project management, and knowledge organization.
 
@@ -111,12 +111,3 @@ StatMind is optimized for the Google Cloud ecosystem:
     echo -n "YOUR_API_KEY" | gcloud secrets create statmind-api-key --data-file=-
     ```
 3.  **Deploy to Cloud Run:** `chmod +x deploy.sh && ./deploy.sh`
-
----
-
-## 💡 Lessons from Evolution
-
-StatMind was built to address critical failure points identified in earlier prototypes:
-*   **Stability:** Moved from ADK-based session management to a **custom SQLAlchemy session store** to eliminate `SessionNotFoundError`.
-*   **Precision:** Replaced LLM-based calculations with **native Python tool calls** to ensure zero-hallucination statistical outputs.
-*   **Scalability:** Implemented a **Coordinator-Specialist pattern** to manage long-running research workflows without overwhelming the context window.
